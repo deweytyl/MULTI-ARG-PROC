@@ -218,26 +218,25 @@
       (let ((body (parse-expression token-source)))
         (proc-exp parameters body)))))
 
+;; acquire-parameters : Token-source -> Scheme-list of identifiers
 (define acquire-parameters
  (lambda (token-source)
    (match-and-discard token-source (open-parenthesis))
    (let ((param-candidate (acquire-token token-source)))
      (cases token param-candidate
        (close-parenthesis () '())
-       (identifier-token (id) 
-         (cons id (acquire-remaining-parameters token-source)))
+       (identifier-token (id)
+         (cons id
+               (let acquire-remaining-parameters ((t-s token-source))
+                 (let ((param-candidate (acquire-token t-s)))
+                   (cases token param-candidate
+                     (close-parenthesis () '())
+                     (comma () (cons (acquire-identifier t-s)
+                                     (acquire-remaining-parameters t-s)))
+                     (else
+                      (report-acquire-parameter-error param-candidate)))))))
        (else
          (report-acquire-parameter-error param-candidate))))))
-
-(define acquire-remaining-parameters
- (lambda (token-source)
-   (let ((param-candidate (acquire-token token-source)))
-     (cases token param-candidate
-       (close-parenthesis () '())
-       (comma () (cons (acquire-identifier token-source)
-                       (acquire-remaining-parameters token-source)))
-       (else
-        (report-acquire-parameter-error param-candidate))))))
 
 (define report-acquire-parameter-error
   (lambda (found-token)
@@ -370,29 +369,29 @@
 
 ;; ;; Parsing simple proc-expressions.
 
- (test 22 (equal? (parse-proc-exp
-                    (scanner (make-character-source "(pi) 14")))
-                  (proc-exp '(pi) (const-exp 14))))
- (test 23 (equal? (parse-expression
-                    (scanner (make-character-source "proc (rho) 15")))
-                  (proc-exp '(rho) (const-exp 15))))
- (test 24 (equal? (parse-program
-                    (scanner (make-character-source "proc (sigma) 16")))
-                  (a-program (proc-exp '(sigma) (const-exp 16)))))
+(test 22 (equal? (parse-proc-exp
+                  (scanner (make-character-source "(pi) 14")))
+                 (proc-exp '(pi) (const-exp 14))))
+(test 23 (equal? (parse-expression
+                  (scanner (make-character-source "proc (rho) 15")))
+                 (proc-exp '(rho) (const-exp 15))))
+(test 24 (equal? (parse-program
+                  (scanner (make-character-source "proc (sigma) 16")))
+                 (a-program (proc-exp '(sigma) (const-exp 16)))))
 
 ;; ;; Parsing simple call-expressions.
 
- (test 25 (equal? (parse-call-exp
-                    (scanner (make-character-source "tau 17)")))
-                  (call-exp (var-exp 'tau) (list (const-exp 17)))))
- (test 26 (equal? (parse-expression
-                    (scanner (make-character-source "(upsilon 18)")))
-                  (call-exp (var-exp 'upsilon) 
-                            (list (const-exp 18)))))
- (test 27 (equal? (parse-program
-                    (scanner (make-character-source "(phi 19)")))
-                  (a-program (call-exp (var-exp 'phi) 
-                                       (list (const-exp 19))))))
+(test 25 (equal? (parse-call-exp
+                  (scanner (make-character-source "tau 17)")))
+                 (call-exp (var-exp 'tau) (list (const-exp 17)))))
+(test 26 (equal? (parse-expression
+                  (scanner (make-character-source "(upsilon 18)")))
+                 (call-exp (var-exp 'upsilon) 
+                           (list (const-exp 18)))))
+(test 27 (equal? (parse-program
+                  (scanner (make-character-source "(phi 19)")))
+                 (a-program (call-exp (var-exp 'phi) 
+                                      (list (const-exp 19))))))
 
 ;; ;; A more complex example.
 

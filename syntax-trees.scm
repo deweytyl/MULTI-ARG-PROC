@@ -22,6 +22,7 @@
 ;;; by Daniel P. Friedman and Mitchell Wand.
 
 (require "../natural-numbers.scm")
+(require "../list-of.scm")
 
 ;;; The grammar for PROC is as follows:
 
@@ -32,8 +33,8 @@
 ;;;                   | if <expression> then <expression> else <expression>
 ;;;                   | <identifier>
 ;;;                   | let <identifier> = <expression> in <expression>
-;;;                   | proc ( <identifier> [, <identifiers...> ) <expression>
-;;;                   | ( <expression> <expression> )
+;;;                   | proc ([<identifier>{, <identifiers>...}*]) <expression>
+;;;                   | ( <expression> [<expression> {, <expression>}*])
 
 ;;; The data type definitions exactly reflect this grammar.
 
@@ -52,31 +53,13 @@
   (let-exp (bound-var symbol?)
            (bound-value expression?)
            (body expression?))
-  (proc-exp (parameters parameter-list?)
+  (proc-exp (parameters (list-of symbol?))
             (body expression?))
   (call-exp (operator expression?)
-            (operands expression-list?)))
-
-(define symbol-list?
-  (lambda (val)
-    (if (list? val)
-        (all? symbol? val)
-        #f)))
-
-(define parameter-list? symbol-list?)
-
-(define expression-list?
-  (lambda (val)
-    (if (list? val)
-        (all? expression? val)
-        #f)))
-
-(define all?
-  (lambda (test? lst)
-    (not (member #f (map test? lst)))))
+            (operands (list-of expression?))))
 
 (provide program program? a-program expression expression? const-exp diff-exp
-         zero?-exp if-exp var-exp let-exp proc-exp call-exp parameter-list?)
+         zero?-exp if-exp var-exp let-exp proc-exp call-exp)
 
 ;;; copyright (C) 2009, 2015 John David Stone
 

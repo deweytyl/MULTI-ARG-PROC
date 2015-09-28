@@ -26,6 +26,7 @@
 ;;; because they are mutually recursive.
 
 (require "../natural-numbers.scm")
+(require "../list-of.scm")
 (require "syntax-trees.scm")
 
 ; ======= Expressed values ==================================================
@@ -90,7 +91,7 @@
 ;; and the identifier? procedure built into some languages under Racket.
 
 (define-datatype proc proc?
-  (a-proc (parameters parameter-list?)
+  (a-proc (parameters (list-of symbol?))
           (body expression?)
           (saved-env environment?)))
 
