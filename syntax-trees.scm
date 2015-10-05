@@ -33,7 +33,7 @@
 ;;;                   | if <expression> then <expression> else <expression>
 ;;;                   | <identifier>
 ;;;                   | let <identifier> = <expression> in <expression>
-;;;                   | proc ([<identifier>{, <identifiers>...}*]) <expression>
+;;;                   | proc ([<identifier>{, <identifiers>}* {, (<identifier> <expression>)}*]) <expression>
 ;;;                   | ( <expression> [<expression> {, <expression>}*])
 
 ;;; The data type definitions exactly reflect this grammar.
@@ -54,12 +54,19 @@
            (bound-value expression?)
            (body expression?))
   (proc-exp (parameters (list-of symbol?))
+            (optional-parameters (list-of symbol-expression-pair?))
             (body expression?))
   (call-exp (operator expression?)
             (operands (list-of expression?))))
 
+(define symbol-expression-pair?
+ (lambda (something)
+   (and (pair? something)
+        (symbol? (car something))
+        (expression? (cdr something)))))
+            
 (provide program program? a-program expression expression? const-exp diff-exp
-         zero?-exp if-exp var-exp let-exp proc-exp call-exp)
+         zero?-exp if-exp var-exp let-exp proc-exp call-exp symbol-expression-pair?)
 
 ;;; copyright (C) 2009, 2015 John David Stone
 

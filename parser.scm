@@ -8,7 +8,7 @@
 ;;; stone@cs.grinnell.edu
 
 ;;; created February 5, 2009
-;;; last revised September 13, 2015
+;;; last revised October 3, 2015
 
 ;;; This file provides a parser for the PROC language
 ;;; developed by Daniel P. Friedman and Mitchell Wand
@@ -30,6 +30,23 @@
     (when (token-source 'at-end?)
       (report-unexpected-end-of-source-error))
     (token-source 'get)))
+
+;;; Alias for acquire token to convey intent
+
+;; acquire-token : Token-source -> Token
+(define discard-token acquire-token)
+
+;;; The peek procedure retrieves a token
+;;; from a given source, signalling if none
+;;; is found, but not removing the token from
+;;; the token source
+
+;; peek-token : Token-source -> Token
+(define peek-token
+  (lambda (token-source)
+    (when (token-source 'at-end?)
+      (report-unexpected-end-of-source-error))
+    (token-source 'peek)))
 
 (define report-unexpected-end-of-source-error
   (lambda ()
@@ -214,29 +231,82 @@
 ;; parse-proc-exp : Token-source -> ProcExp
 (define parse-proc-exp
   (lambda (token-source)
-    (let ((parameters (acquire-parameters token-source)))
-      (let ((body (parse-expression token-source)))
-        (proc-exp parameters body)))))
+    (let* ((parameters (acquire-parameters token-source))
+           (optional-parameters (acquire-optional-parameters token-source))
+           (body (parse-expression token-source)))
+      (proc-exp parameters optional-parameters body))))
 
 ;; acquire-parameters : Token-source -> Scheme-list of identifiers
 (define acquire-parameters
  (lambda (token-source)
    (match-and-discard token-source (open-parenthesis))
-   (let ((param-candidate (acquire-token token-source)))
+   ;; peek at next token, because acquire-optional-parameters will remove close paren
+   (let ((param-candidate (peek-token token-source)))
      (cases token param-candidate
-       (close-parenthesis () '())
+
+       ;; found empty parameter list
+       (close-parenthesis () '()) ;; end of params
+       (open-parenthesis () '())  ;; beginning of optional params
+
        (identifier-token (id)
-         (cons id
-               (let acquire-remaining-parameters ((t-s token-source))
-                 (let ((param-candidate (acquire-token t-s)))
-                   (cases token param-candidate
-                     (close-parenthesis () '())
-                     (comma () (cons (acquire-identifier t-s)
-                                     (acquire-remaining-parameters t-s)))
-                     (else
-                      (report-acquire-parameter-error param-candidate)))))))
+                         
+         ;; remove "peeked" identifier
+         (match-and-discard token-source (identifier-token id))
+         
+         ;; get remaining standard params
+         (let acquire-remaining-parameters ((so-far (list id)))
+           (let ((separator-candidate (peek-token token-source)))
+             (cases token separator-candidate
+               (close-parenthesis () (reverse so-far)) ;; parameter list is constructed in reverse &
+                                                       ;; final order is important for evaluation
+               (comma ()
+                 (discard-token token-source)
+                 (cases token (peek-token token-source)
+                   (open-parenthesis () (reverse so-far)) ;; open-parenthesis indicates start of
+                                                          ;; optional param list
+                   (else
+                    (acquire-remaining-parameters (cons (acquire-identifier token-source) so-far)))))
+               (else
+                (report-acquire-parameter-error separator-candidate))))))
        (else
          (report-acquire-parameter-error param-candidate))))))
+
+;; acquire-optional-parameters : Token-source -> Scheme-list of identifier & expression pairs
+(define acquire-optional-parameters
+  (lambda (token-source)
+    (let ((candidate (peek-token token-source)))
+      (cases token candidate
+        (close-parenthesis ()
+          (discard-token token-source) ;; remove close-paren on top
+          '())
+        (open-parenthesis ()
+          (let ((param-pair (acquire-optional-param-pair token-source)))
+
+            ;; get remaining optional params
+            (let acquire-remaining-optional-params ((so-far (list param-pair)))
+
+              (let ((separator-candidate (peek-token token-source)))
+                (cases token separator-candidate
+                  (close-parenthesis ()
+                     (discard-token token-source) ;; remove close-paren on top
+                     (reverse so-far)) ;; list is constructed in reverse & final
+                                       ;; order is important for evaluation
+                  (comma ()
+                    (discard-token token-source) ;; remove comma on top
+                    (acquire-remaining-optional-params
+                     (cons (acquire-optional-param-pair token-source) so-far)))
+                  (else
+                   (report-acquire-parameter-error separator-candidate)))))))
+        (else
+         (report-acquire-parameter-error candidate))))))
+
+(define acquire-optional-param-pair
+  (lambda (token-source)
+    (match-and-discard token-source (open-parenthesis))
+    (let ((param-pair (cons (acquire-identifier token-source)
+                            (parse-expression token-source))))
+      (match-and-discard token-source (close-parenthesis))
+      param-pair)))
 
 (define report-acquire-parameter-error
   (lambda (found-token)
@@ -371,13 +441,13 @@
 
 (test 22 (equal? (parse-proc-exp
                   (scanner (make-character-source "(pi) 14")))
-                 (proc-exp '(pi) (const-exp 14))))
+                 (proc-exp '(pi) '() (const-exp 14))))
 (test 23 (equal? (parse-expression
                   (scanner (make-character-source "proc (rho) 15")))
-                 (proc-exp '(rho) (const-exp 15))))
+                 (proc-exp '(rho) '() (const-exp 15))))
 (test 24 (equal? (parse-program
                   (scanner (make-character-source "proc (sigma) 16")))
-                 (a-program (proc-exp '(sigma) (const-exp 16)))))
+                 (a-program (proc-exp '(sigma) '() (const-exp 16)))))
 
 ;; ;; Parsing simple call-expressions.
 
@@ -583,11 +653,11 @@
 
  (test 46 (equal? (parse-proc-exp
                     (scanner (make-character-source "() 14")))
-                  (proc-exp '() (const-exp 14))))
+                  (proc-exp '() '() (const-exp 14))))
 
  (test 47 (equal? (parse-proc-exp
                     (scanner (make-character-source "(pi, rho) 14")))
-                  (proc-exp '(pi rho) (const-exp 14))))
+                  (proc-exp '(pi rho) '() (const-exp 14))))
 
 ;; ;; Parsing multi-argument call-expressions.
 
@@ -595,10 +665,23 @@
                     (scanner (make-character-source "tau)")))
                   (call-exp (var-exp 'tau) (list))))
 
- (test 25 (equal? (parse-call-exp
+ (test 49 (equal? (parse-call-exp
                     (scanner (make-character-source "tau 17 18)")))
                   (call-exp (var-exp 'tau) (list (const-exp 17)
                                                  (const-exp 18)))))
+
+;; ;; Parsing optional-arg proc-expressions.
+
+ (test 50 (equal? (parse-proc-exp
+                    (scanner (make-character-source "(pi, (rho 1)) 14")))
+                  (proc-exp '(pi) (list (cons 'rho (const-exp 1))) (const-exp 14))))
+
+ (test 51 (equal? (parse-proc-exp
+                    (scanner (make-character-source "((pi 1), (rho x)) 14")))
+                  (proc-exp '()
+                            (list (cons 'pi (const-exp 1))
+                                  (cons 'rho (var-exp 'x)))
+                            (const-exp 14))))
 
 ;; ;; The following expressions should raise errors when evaluated.
 

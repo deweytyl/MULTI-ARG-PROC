@@ -60,8 +60,15 @@
       (let-exp (var exp1 body)
         (let ((val1 (value-of exp1 env)))
           (value-of body (extend-env var val1 env))))
-      (proc-exp (vars body)
-        (proc-val (a-proc vars body env)))
+      (proc-exp (standard-vars optional-var-pairs body)
+        (let* ((optional-vars (map car optional-var-pairs))
+               (optional-var-values (map (lambda (p) (value-of (cdr p) env))
+                                         optional-var-pairs))
+               (vars (append standard-vars optional-vars)))
+        (proc-val (a-proc vars
+                          (length standard-vars)
+                          body
+                          (extend-env* optional-vars optional-var-values env)))))
       (call-exp (operator operands)
         (let ((proc (expval->proc (value-of operator env)))
               (args (map (lambda (operand) (value-of operand env))
@@ -79,10 +86,21 @@
 (define apply-procedure
   (lambda (applicand arguments env)
     (cases proc applicand
-      (a-proc (parameters body saved-env)
-        (value-of body (extend-env* parameters 
-                                    arguments 
-                                    saved-env))))))
+      (a-proc (parameters min-arity body saved-env)
+        (let ((num-args (length arguments)))
+          (if (>= num-args min-arity)
+              (value-of body (extend-env* parameters 
+                                          arguments 
+                                          saved-env))
+              (report-arity-error min-arity num-args)))))))
+
+;; report-apply-procedure-error : String -> ()
+(define report-arity-error
+  (lambda (expected found)
+    (eopl:error 'apply-procedure
+                "arity mismatch: expected at least ~a arguments, found ~a.~%"
+                expected
+                found)))
 
 ;;; Tests
 
@@ -171,18 +189,18 @@
 
 ;;; Proc-expressions
 
-(test 24 (equal? (value-of (proc-exp '(pi) (const-exp 14)) (empty-env))
-                 (proc-val (a-proc '(pi) (const-exp 14) (empty-env)))))
+(test 24 (equal? (value-of (proc-exp '(pi) '() (const-exp 14)) (empty-env))
+                 (proc-val (a-proc '(pi) 1 (const-exp 14) (empty-env)))))
 (test 25 (equal? (value-of-program
-                   (a-program (proc-exp '(rho) (var-exp 'rho))))
-                   (proc-val (a-proc '(rho) (var-exp 'rho) (init-env)))))
+                   (a-program (proc-exp '(rho) '() (var-exp 'rho))))
+                   (proc-val (a-proc '(rho) 1 (var-exp 'rho) (init-env)))))
 (test 26 (equal? (run "proc (sigma) 15")
-                 (proc-val (a-proc '(sigma) (const-exp 15) (init-env)))))
+                 (proc-val (a-proc '(sigma) 1 (const-exp 15) (init-env)))))
 
 ;;; Call-expressions
 
 (test 27 (equal? (value-of
-                   (call-exp (proc-exp '(tau) (diff-exp (var-exp 'tau)
+                   (call-exp (proc-exp '(tau) '() (diff-exp (var-exp 'tau)
                                                       (const-exp 16)))
                              (list (const-exp 17)))
                    (empty-env))
@@ -190,6 +208,7 @@
 (test 28 (equal? (value-of-program
                    (a-program
                      (call-exp (proc-exp '(upsilon)
+                                         '()
                                          (zero?-exp (var-exp 'upsilon)))
                                (list (var-exp 'x)))))
                  (bool-val #f)))
@@ -232,22 +251,6 @@
                           in let free = 53
                              in (addfree free)")
                  (num-val 84)))
-;(test 38 (equal? (run "let x = 200
-;                       in let f = proc (z) -(z, x)
-;                          in let x = 100
-;                             in let g = proc (z) -(z, x)
-;                                in -((f 1), (g 1))")
-;                 (num-val -100)))
-;(test 39 (equal? (run "let makemult = proc (maker)
-;                                        proc (x)
-;                                          if zero?(x)
-;                                          then 0
-;                                          else -(((maker maker) -(x, 1)),
-;                                                 -4)
-;                       in let times4 = proc (x)
-;                                         ((makemult makemult) x)
-;                          in (times4 3)")
-;                 (num-val 12)))
 
 ;; The following expression should signal errors:
 

@@ -92,6 +92,7 @@
 
 (define-datatype proc proc?
   (a-proc (parameters (list-of symbol?))
+          (min-arity natural-number?)
           (body expression?)
           (saved-env environment?)))
 
@@ -115,13 +116,13 @@
 
 (define extend-env* 
   (lambda (vars vals saved)
-    (if (= (length vars) (length vals))
-        (if (null? vars)
+    (if (>= (length vars) (length vals))
+        (if (null? vals)
             saved
             (extend-env (car vars) (car vals)
                         (extend-env* (cdr vars) (cdr vals) saved)))
         (eopl:error 'extend-env*
-                    "vars and vals must be of equal length~%"))))
+                    "must have at least as many vars as vals~%"))))
 
 ;;; The apply-env procedure looks up a given variable
 ;;; in a given environment
