@@ -16,7 +16,12 @@
 ;;; Certified killing it
 ;;; 14 September 2015
 
-;;; last revised September 13, 2015
+;;; Tyler Dewey
+;;; Modified for multi-argument procs
+;;; with default values
+;;; October 3, 2015
+
+;;; last revised October 5, 2015
 
 (require "expvals-and-environments.scm")
 (require "parser.scm")

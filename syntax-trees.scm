@@ -11,8 +11,13 @@
 ;;; Certified killing it
 ;;; 14 September 2015
 
+;;; Tyler Dewey
+;;; Modified for multi-argument procs
+;;; with default values
+;;; October 3, 2015
+
 ;;; created February 3, 2009
-;;; last revised September 13, 2015
+;;; last revised October 5, 2015
 
 ;;; This module defines a data type
 ;;; for abstract syntax trees of the PROC programming language,

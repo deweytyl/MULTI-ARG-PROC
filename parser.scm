@@ -7,8 +7,13 @@
 ;;; Grinnell College
 ;;; stone@cs.grinnell.edu
 
+;;; Tyler Dewey
+;;; Modified for multi-argument procs
+;;; with default values
+;;; October 3, 2015
+
 ;;; created February 5, 2009
-;;; last revised October 3, 2015
+;;; last revised October 5, 2015
 
 ;;; This file provides a parser for the PROC language
 ;;; developed by Daniel P. Friedman and Mitchell Wand
